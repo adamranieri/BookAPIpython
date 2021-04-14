@@ -1,12 +1,12 @@
 from flask import Flask, request, jsonify
 from werkzeug.exceptions import abort
-
 from daos.book_dao_local import BookDaoLocal
+from daos.book_dao_postgres import BookDaoPostgres
 from entities.book import Book
 from exceptions.resource_not_found import ResourceNotFound
 from services.book_service_impl import BookServiceImpl
 
-book_dao = BookDaoLocal()
+book_dao = BookDaoPostgres()
 book_service = BookServiceImpl(book_dao)
 
 def create_routes(app: Flask):
@@ -27,6 +27,7 @@ def create_routes(app: Flask):
     def post_book():
         book = Book.json_deserialize(request.json)
         book_service.register_book(book)
+        app.logger.info(f'new book registered ID: {book.book_id}')
         return jsonify(book.json()), 201
 
     @app.route('/books/<book_id>', methods=['GET'])
@@ -51,6 +52,7 @@ def create_routes(app: Flask):
     def del_book(book_id: str):
         try:
             book_service.delete_book_by_id(int(book_id))
+            app.logger.info(f'deleted book ID: {book_id}')
             return '', 204
         except ResourceNotFound as e:
             return e.message, 404
@@ -61,9 +63,11 @@ def create_routes(app: Flask):
 
         if action == 'checkout':
             book_service.checkout_book(int(book_id))
+            app.logger.info(f'checkout ID: {book_id}')
             return 'The book was successfully checked out'
         elif action == 'checkin':
             book_service.checkin_book(int(book_id))
+            app.logger.info(f'checkin ID: {book_id}')
             return 'The book was successfully checked in'
         else:
             abort(400, 'body must have a json with an action property and values checkin or checkout')
